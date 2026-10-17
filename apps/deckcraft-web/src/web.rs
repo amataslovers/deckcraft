@@ -22,6 +22,9 @@ pub fn start() {
             log::error!("missing <canvas id=\"{CANVAS_ID}\">");
             return;
         };
+        // `?host=kawan`: KawanEditor drives DeckCraft from its parent page (`kawan`).
+        let kawan = crate::kawan::web::Bridge::from_url().map(std::rc::Rc::new);
+        let app_kawan = kawan.clone();
         let mut options = eframe::WebOptions::default();
         if query().contains("webgl")
             && let eframe::egui_wgpu::WgpuSetup::CreateNew(create) = &mut options.wgpu_options.wgpu_setup
@@ -37,9 +40,13 @@ pub fn start() {
                         log::info!("deckcraft-web {}: wgpu backend {:?}", env!("CARGO_PKG_VERSION"), rs.adapter.get_info().backend);
                     }
                     let inbox: Inbox = Inbox::default();
-                    let mut app = SlideApp::new(Session::new(), services(inbox.clone(), cc.egui_ctx.clone()));
+                    let mut services = services(inbox.clone(), cc.egui_ctx.clone());
+                    if let Some(k) = &app_kawan {
+                        crate::kawan::attach(&mut services, k, &cc.egui_ctx);
+                    }
+                    let mut app = SlideApp::new(Session::new(), services);
                     let q = query();
-                    if !q.contains("blank") {
+                    if !q.contains("blank") && app_kawan.is_none() {
                         if let Err(e) = deckcraft_engine::sample::open_sample(&mut app.session) {
                             log::error!("sample deck: {e}");
                         }
@@ -49,10 +56,13 @@ pub fn start() {
                     if q.contains("show") {
                         app.start_show(0, false);
                     }
-                    Ok(Box::new(WebShell { app, inbox }))
+                    Ok(Box::new(WebShell { app, inbox, kawan: app_kawan }))
                 }),
             )
             .await;
+        if let (Err(e), Some(k)) = (&result, &kawan) {
+            k.post_start_failed(&format!("{e:?}"));
+        }
         if let Some(el) = document.get_element_by_id(LOADING_ID) {
             match result {
                 Ok(()) => el.remove(),
@@ -71,6 +81,7 @@ fn query() -> String {
 struct WebShell {
     app: SlideApp,
     inbox: Inbox,
+    kawan: Option<std::rc::Rc<crate::kawan::web::Bridge>>,
 }
 
 impl eframe::App for WebShell {
@@ -91,6 +102,9 @@ impl eframe::App for WebShell {
             });
         }
         self.app.logic(ctx);
+        if let Some(k) = &self.kawan {
+            k.tick(&mut crate::kawan::host::DeckHost(&mut self.app));
+        }
     }
 
     fn raw_input_hook(&mut self, _ctx: &egui::Context, raw: &mut egui::RawInput) {
