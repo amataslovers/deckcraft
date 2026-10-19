@@ -8,12 +8,20 @@ use serde_json::{Value, json};
 use super::policy::{self, Policy};
 use super::protocol::{Classify, CommandInfo, Host};
 
-/// Commands that change the document although they are not undoable.
-const ALSO_MUTATING: &[&str] = &["edit.undo", "edit.redo", "edit.cut", "file.revert", "text.compose", "text.commit"];
+/// Commands that change the document although they are not undoable, or replace it with another
+/// one (a save would then hand that one to the page under this document's key),
+/// and the user's own saves: view mode saves nothing.
+const ALSO_MUTATING: &[&str] = &[
+    "edit.undo", "edit.redo", "edit.cut", "file.revert", "text.compose", "text.commit", "file.new", "file.open*", "file.close",
+    "file.recovery.open", "file.recovery.discard", "app.closePresentation", "app.openDialog", "file.save*", "app.saveAsDialog",
+];
 
 fn undoable(id: &str) -> bool {
     deckcraft_engine::find_command(id).is_some_and(|s| s.undoable)
 }
+
+/// State queries and selection moves the UI runs on its own; the host's lists skip them.
+const QUERIES: &[&str] = &["format.state", "file.info", "text.get", "edit.select"];
 
 pub struct DeckHost<'a>(pub &'a mut SlideApp);
 
@@ -78,6 +86,7 @@ impl Host for DeckHost<'_> {
 
     fn set_policy(&mut self, mut p: Policy) {
         p.mutating = ALSO_MUTATING.iter().map(|s| s.to_string()).collect();
+        p.queries = QUERIES.iter().map(|s| s.to_string()).collect();
         policy::set(p);
     }
 

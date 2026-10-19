@@ -52,3 +52,14 @@ fn upstream_policy_changes_nothing() {
     s.execute("slide.new", &json!({})).unwrap();
     assert_eq!(slides(&s), 2);
 }
+
+#[test]
+fn allow_and_deny_spare_the_queries_the_ui_reads() {
+    let mut s = Session::with_new();
+    // The host knows nothing of `format.state`; the ribbon reads it every frame.
+    let queries = vec!["format.state".to_string()];
+    kawan::set(Policy { allow: Some(vec!["slide.new".into()]), deny: vec!["format.*".into()], queries, ..Policy::default() });
+    assert!(s.execute("format.state", &json!({})).is_ok());
+    assert!(matches!(s.execute("format.bold", &json!({})), Err(EngineError::Disabled(..))));
+    kawan::set(Policy::default());
+}

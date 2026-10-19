@@ -482,6 +482,10 @@ impl Session {
 
     /// Mutate the active presentation (copy-on-write) and bump the revision.
     pub fn edit<T>(&mut self, f: impl FnOnce(&mut Presentation, &mut Selection) -> Result<T>) -> Result<T> {
+        // Pointer drags (move, resize, ink) edit here without a command.
+        if crate::kawan::read_only() {
+            return Err(EngineError::Disabled("edit".into(), "read-only".into()));
+        }
         let st = self.doc_mut()?;
         let mut doc = (*st.doc).clone();
         let mut sel = st.selection.clone();
