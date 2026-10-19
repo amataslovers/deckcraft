@@ -12,8 +12,16 @@ use crate::widgets::{self, RIBBON_H, big_button, big_button_ex, color_split, dro
 
 pub const TITLE_H: f32 = 38.0;
 
+/// Does the host's policy hide command `id` (KawanEditor)?
+pub fn denied(id: &str) -> bool {
+    deckcraft_engine::kawan::allows(id, deckcraft_engine::find_command(id).is_some_and(|c| c.undoable)).is_err()
+}
+
 /// Is engine command `id` enabled right now?
 pub fn enabled(app: &SlideApp, id: &str) -> bool {
+    if denied(id) {
+        return false;
+    }
     match deckcraft_engine::find_command(id) {
         Some(c) => (c.enabled)(&app.session).is_ok(),
         None => crate::UI_COMMANDS.iter().any(|c| c.0 == id),
@@ -140,6 +148,9 @@ pub fn show(app: &mut SlideApp, ui: &mut Ui) {
     if !TABS.contains(&app.ui.tab.as_str()) && !ctx_tabs.contains(&app.ui.tab.as_str()) {
         app.ui.tab = "Home".into();
     }
+    if deckcraft_engine::kawan::tab_hidden(&app.ui.tab) {
+        app.ui.tab = TABS.iter().find(|t| !deckcraft_engine::kawan::tab_hidden(t)).unwrap_or(&"Home").to_string();
+    }
     let h = 28.0 + if app.ui.ribbon_collapsed { 4.0 } else { RIBBON_H + 20.0 };
     egui::Panel::top("ribbon").exact_size(h).frame(egui::Frame::NONE.fill(t.chrome)).show(ui, |ui| {
         let rect = ui.max_rect();
@@ -161,7 +172,7 @@ pub fn show(app: &mut SlideApp, ui: &mut Ui) {
             }
             x += w + 2.0;
         }
-        let all: Vec<(&str, bool)> = TABS.iter().map(|s| (*s, false)).chain(ctx_tabs.iter().map(|s| (*s, true))).collect();
+        let all: Vec<(&str, bool)> = TABS.iter().map(|s| (*s, false)).chain(ctx_tabs.iter().map(|s| (*s, true))).filter(|(n, _)| !deckcraft_engine::kawan::tab_hidden(n)).collect();
         for (name, contextual) in all {
             let font = theme::font(13.0);
             let w = ui.fonts_mut(|f| f.layout_no_wrap(name.to_string(), font.clone(), t.text).size().x) + 18.0;
@@ -203,7 +214,8 @@ pub fn show(app: &mut SlideApp, ui: &mut Ui) {
         cui.set_clip_rect(inner.expand2(vec2(0.0, 3.0)));
         cui.spacing_mut().item_spacing.x = 1.0;
         let ui = &mut cui;
-        let tab = app.ui.tab.clone();
+        // Every tab hidden by the host: no body (the fallback above found none to show).
+        let tab = if deckcraft_engine::kawan::tab_hidden(&app.ui.tab) { String::new() } else { app.ui.tab.clone() };
         match tab.as_str() {
             "Home" => home(app, ui),
             "Insert" => insert(app, ui),
@@ -228,6 +240,9 @@ pub fn show(app: &mut SlideApp, ui: &mut Ui) {
 }
 
 fn big(app: &mut SlideApp, ui: &mut Ui, icon: Icon, label: &str, id: &str, p: Value) {
+    if denied(id) {
+        return;
+    }
     let en = enabled(app, id);
     if big_button(ui, icon, label, en).on_hover_text(tip(id, label)).clicked() {
         run(app, id, p);
@@ -235,6 +250,9 @@ fn big(app: &mut SlideApp, ui: &mut Ui, icon: Icon, label: &str, id: &str, p: Va
 }
 
 fn small(app: &mut SlideApp, ui: &mut Ui, icon: Icon, label: &str, id: &str, p: Value) {
+    if denied(id) {
+        return;
+    }
     let en = enabled(app, id);
     if small_button(ui, icon, label, en, false).on_hover_text(tip(id, label)).clicked() {
         run(app, id, p);
@@ -242,6 +260,9 @@ fn small(app: &mut SlideApp, ui: &mut Ui, icon: Icon, label: &str, id: &str, p: 
 }
 
 fn toggle(app: &mut SlideApp, ui: &mut Ui, icon: Icon, label: &str, id: &str, on: bool) {
+    if denied(id) {
+        return;
+    }
     let en = enabled(app, id);
     if icon_toggle(ui, icon, &tip(id, label), en, on).clicked() {
         run(app, id, json!({}));
@@ -980,6 +1001,9 @@ pub fn align_menu(app: &mut SlideApp, ui: &mut Ui) {
 }
 
 pub fn menu_item(app: &mut SlideApp, ui: &mut Ui, icon: Icon, label: &str, id: &str, p: Value) {
+    if denied(id) {
+        return;
+    }
     let en = enabled(app, id);
     let r = small_button(ui, icon, label, en, false);
     if r.clicked() {

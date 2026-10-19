@@ -92,6 +92,7 @@ pub fn palette(app: &mut SlideApp, ctx: &egui::Context) {
                 .filter(|c| c.enabled)
                 .map(|c| (c.id.to_string(), c.label.to_string(), c.shortcut))
                 .chain(crate::UI_COMMANDS.iter().map(|c| (c.0.to_string(), c.1.to_string(), c.2)))
+                .filter(|(id, _, _)| !crate::ribbon::denied(id))
                 .filter(|(id, label, _)| q.is_empty() || label.to_lowercase().contains(&q) || id.to_lowercase().contains(&q))
                 .collect();
             items.sort_by_key(|(_, l, _)| !l.to_lowercase().starts_with(&q));

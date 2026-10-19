@@ -283,7 +283,7 @@ impl SlideApp {
     /// status bar and are returned.
     pub fn run(&mut self, id: &str, params: Value) -> Result<Value, String> {
         let r = if UI_COMMANDS.iter().any(|c| c.0 == id) {
-            self.run_ui(id, &params)
+            deckcraft_engine::kawan::allows(id, false).map_err(|why| format!("{id}: {why}")).and_then(|()| self.run_ui(id, &params))
         } else {
             self.session.execute(id, &params).map_err(|e| e.to_string())
         };
@@ -356,6 +356,10 @@ impl SlideApp {
     /// on the web. `extra` adds `file.export` params (the PDF's layout, slides…). The
     /// presentation keeps its own file. Returns whether a file was written or handed over.
     pub fn export_as(&mut self, fmt: &str, extra: Value) -> bool {
+        // Backstage Export calls this directly, not through `file.export`.
+        if deckcraft_engine::kawan::allows("file.export", false).is_err() {
+            return false;
+        }
         let Some(slide) = self.session.active().map(|d| d.selection.slide) else { return false };
         let (ext, format, all) = match fmt {
             "pdf" => ("pdf", "pdf", false),
@@ -420,6 +424,10 @@ impl SlideApp {
     /// layout, slides and options) is written to the temporary folder and opened in the system's
     /// PDF viewer, which has the printers; on the web it downloads.
     pub fn print_pdf(&mut self, params: Value) -> bool {
+        // Backstage Print calls this directly, not through `app.print`.
+        if deckcraft_engine::kawan::allows("app.print", false).is_err() {
+            return false;
+        }
         let Some((title, doc)) = self.session.active().map(|d| (d.title(), d.doc.clone())) else { return false };
         let mut params = if params.is_object() { params } else { json!({}) };
         if self.services.pick_save.is_none() {

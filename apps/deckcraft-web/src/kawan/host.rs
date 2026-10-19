@@ -5,7 +5,15 @@ use deckcraft_engine::cmd::base64_encode;
 use deckcraft_ui_egui::SlideApp;
 use serde_json::{Value, json};
 
+use super::policy::{self, Policy};
 use super::protocol::{Classify, CommandInfo, Host};
+
+/// Commands that change the document although they are not undoable.
+const ALSO_MUTATING: &[&str] = &["edit.undo", "edit.redo", "edit.cut", "file.revert", "text.compose", "text.commit"];
+
+fn undoable(id: &str) -> bool {
+    deckcraft_engine::find_command(id).is_some_and(|s| s.undoable)
+}
 
 pub struct DeckHost<'a>(pub &'a mut SlideApp);
 
@@ -20,7 +28,8 @@ impl DeckHost<'_> {
 impl Host for DeckHost<'_> {
     fn open(&mut self, name: &str, bytes: Vec<u8>) -> Result<(), String> {
         let session = &mut self.0.session;
-        session.execute("file.openBytes", &json!({"name": name, "data": base64_encode(&bytes)})).map_err(|e| e.to_string())?;
+        // The bridge's own open: the host's command deny list does not apply to it.
+        policy::as_host(|| session.execute("file.openBytes", &json!({"name": name, "data": base64_encode(&bytes)}))).map_err(|e| e.to_string())?;
         // The opened deck is the last document; one editor holds one document, so close the rest.
         while session.documents().len() > 1 {
             session.close_document(0);
@@ -47,12 +56,8 @@ impl Host for DeckHost<'_> {
             .session
             .commands()
             .into_iter()
-            .map(|c| CommandInfo {
-                id: c.id.to_string(),
-                label: c.label.to_string(),
-                menu: c.menu.join(" › "),
-                mutates: deckcraft_engine::find_command(c.id).is_some_and(|s| s.undoable),
-            })
+            .filter(|c| policy::allows(c.id, undoable(c.id)).is_ok())
+            .map(|c| CommandInfo { id: c.id.to_string(), label: c.label.to_string(), menu: c.menu.join(" › "), mutates: undoable(c.id) })
             .collect()
     }
 
@@ -69,6 +74,11 @@ impl Host for DeckHost<'_> {
 
     fn set_author(&mut self, name: &str) {
         self.0.session.prefs.author = name.chars().take(200).collect();
+    }
+
+    fn set_policy(&mut self, mut p: Policy) {
+        p.mutating = ALSO_MUTATING.iter().map(|s| s.to_string()).collect();
+        policy::set(p);
     }
 
     fn classify(&self, name: &str) -> Classify {

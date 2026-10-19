@@ -12,6 +12,7 @@ pub mod connect;
 pub mod fonts;
 pub mod guard;
 pub mod keys;
+pub mod kawan;
 pub mod links;
 pub mod recovery;
 pub mod sample;
@@ -437,6 +438,7 @@ impl Session {
 
     fn execute_unguarded(&mut self, id: &str, params: &Value) -> Result<Value> {
         let spec = find_command(id).ok_or_else(|| EngineError::UnknownCommand(id.into()))?;
+        crate::kawan::allows(id, spec.undoable).map_err(|why| EngineError::Disabled(id.into(), why.into()))?;
         // Any other edit (or a click, a key, undo) settles an input method's composition first.
         if self.depth == 0 && (spec.journal || spec.undoable) && !matches!(id, "text.compose" | "text.commit") {
             self.end_composition();
