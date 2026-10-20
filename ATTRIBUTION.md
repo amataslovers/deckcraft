@@ -31,6 +31,7 @@ deck and UI icons are original work of the DeckCraft contributors (drawn or gene
 | `crates/fonts/tests/fixtures/legacy-semibold.ttf` | DeckCraft contributors | a one-glyph Semibold face named like Segoe UI Semibold (its Windows family differs from the typographic one), built by `make_legacy_font.py` (fontTools as the builder only) | CC0-1.0 | Font lookup by Windows family name tests |
 | `crates/fonts/tests/fixtures/legacy-regular.ttf` | DeckCraft contributors | the same family's one-glyph Regular face, built by `make_legacy_font.py` (fontTools as the builder only) | CC0-1.0 | Font lookup by Windows family name tests |
 | `crates/render/tests/fixtures/make_colr_font.py` | DeckCraft contributors | this repository | MIT OR Apache-2.0 | Regenerates the COLR test font |
+| `crates/ui-egui/assets/kawan-logo.png` | KawanEditor contributors (drawn by kawan-editor `assets/brand/make_logo.py`) | contributor-original, the kawan-editor repository (`assets/brand/kawan-logo.png`) | MIT OR Apache-2.0 | KawanEditor builds only: title bar, File tab and About logo, web favicon |
 
 ## Bundled through dependencies
 

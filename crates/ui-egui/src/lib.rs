@@ -13,6 +13,7 @@ pub mod credits;
 pub mod dialogs;
 pub mod fillui;
 pub mod icons;
+pub mod kawan_brand;
 pub mod media;
 pub mod menus;
 pub mod panes;
@@ -158,7 +159,7 @@ pub const UI_COMMANDS: &[(&str, &str, Option<&str>, &str)] = &[
     ("app.backstage", "File", Some("Alt+F"), "{page?: home|new|open|info|saveAs|print|export|account, on?: bool}"),
     ("app.closePresentation", "Close", Some("Cmd+W"), "{}"),
     ("app.print", "Print", Some("Cmd+P"), "{layout?, perPage?, slides?, includeHidden?, frame?}"),
-    ("app.about", "About DeckCraft", None, "{}"),
+    ("app.about", "About KawanEditor", None, "{}"),
     ("app.palette", "Command Palette", Some("Cmd+Shift+P"), "{}"),
     ("app.preferences", "Preferences…", Some("Cmd+,"), "{}"),
     ("app.openDialog", "Open…", None, "{purpose?}"),

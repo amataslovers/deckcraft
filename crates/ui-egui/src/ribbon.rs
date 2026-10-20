@@ -55,6 +55,7 @@ pub fn title_bar(app: &mut SlideApp, ui: &mut Ui) {
         child.spacing_mut().item_spacing.x = 2.0;
         let has_doc = app.session.active().is_some();
         let dirty = app.session.active().is_some_and(|d| d.is_dirty());
+        crate::kawan_brand::header_logo(&mut child);
         if icon_toggle(&mut child, Icon::Home, "Home", true, app.backstage_open()).clicked() {
             let _ = app.run("app.home", json!({}));
         }
@@ -71,7 +72,7 @@ pub fn title_bar(app: &mut SlideApp, ui: &mut Ui) {
             app.start_show(0, false);
         }
         let title =
-            app.session.active().map(|d| format!("{}{}", d.title(), if dirty { " — Edited" } else { "" })).unwrap_or_else(|| "DeckCraft".into());
+            app.session.active().map(|d| format!("{}{}", d.title(), if dirty { " — Edited" } else { "" })).unwrap_or_else(|| "KawanEditor".into());
         ui.painter().text(rect.center(), Align2::CENTER_CENTER, title, theme::font(13.0), t.text);
         // Right side.
         let mut right = ui.new_child(
@@ -1796,7 +1797,7 @@ fn record(app: &mut SlideApp, ui: &mut Ui) {
     });
     group(ui, |ui| {
         if big_button(ui, Icon::Help, "Learn\nMore", true).clicked() {
-            app.open_url(deckcraft_engine::links::APP_PAGE);
+            app.open_url(deckcraft_engine::links::GITHUB);
         }
     });
 }
