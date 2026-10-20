@@ -154,3 +154,32 @@ fn host_logo_without_href_is_not_a_link() {
     assert_eq!(logo, Some([256, 256]), "a bad host PNG falls back to the default logo");
     kawan::set(Policy::default());
 }
+
+#[test]
+fn host_accent_reaches_visuals() {
+    use deckcraft_ui_egui::theme::Tokens;
+    let visuals = |h: &Harness<'static, SlideApp>| h.ctx.global_style().visuals.clone();
+    kawan::set(Policy::default());
+    let mut h = harness("Home");
+    assert_eq!(visuals(&h).hyperlink_color, egui::Color32::from_rgb(0xD9, 0x5A, 0x1A), "DeckCraft's own accent without a host accent");
+    assert_eq!(visuals(&h).selection.stroke.color, egui::Color32::WHITE);
+    // A policy arriving after start-up: the bridge's init then runs `view.dark` with the host theme.
+    let accent = egui::Color32::from_rgb(0xE1, 0x1D, 0x48);
+    kawan::set(Policy { accent: Some([0xE1, 0x1D, 0x48]), ..Policy::default() });
+    h.state_mut().run("view.dark", json!({"on": false})).unwrap();
+    h.run_steps(4);
+    assert_eq!(visuals(&h).hyperlink_color, accent);
+    assert_eq!(visuals(&h).selection.bg_fill, accent.gamma_multiply(0.85));
+    assert_eq!(visuals(&h).selection.stroke.color, egui::Color32::WHITE, "the text on the accent");
+    assert_eq!(Tokens::get(&h.ctx).accent, accent, "every Tokens::get caller");
+    assert_eq!(Tokens::get(&h.ctx).contextual, egui::Color32::from_rgb(203, 26, 65));
+    h.state_mut().run("view.dark", json!({"on": true})).unwrap();
+    h.run_steps(4);
+    assert!(visuals(&h).dark_mode);
+    assert_eq!(visuals(&h).hyperlink_color, accent);
+    assert_eq!(Tokens::get(&h.ctx).contextual, egui::Color32::from_rgb(233, 86, 118), "contextual, dark");
+    kawan::set(Policy::default());
+    h.state_mut().run("view.dark", json!({"on": true})).unwrap();
+    h.run_steps(4);
+    assert_eq!(visuals(&h).hyperlink_color, egui::Color32::from_rgb(0xF2, 0x6B, 0x1D), "DeckCraft's own dark accent again");
+}

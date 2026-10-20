@@ -102,13 +102,13 @@ impl Tokens {
         }
     }
     pub fn for_brightness(b: Brightness) -> Self {
-        match b {
+        crate::kawan_brand::tint(match b {
             Brightness::Light => Self::light(),
             Brightness::Dark => Self::dark(),
-        }
+        })
     }
     pub fn get(ctx: &egui::Context) -> Self {
-        if ctx.global_style().visuals.dark_mode { Self::dark() } else { Self::light() }
+        crate::kawan_brand::tint(if ctx.global_style().visuals.dark_mode { Self::dark() } else { Self::light() })
     }
 }
 

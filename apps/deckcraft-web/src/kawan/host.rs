@@ -5,7 +5,7 @@ use deckcraft_engine::cmd::base64_encode;
 use deckcraft_ui_egui::SlideApp;
 use serde_json::{Value, json};
 
-use super::policy::{self, Policy};
+use super::policy::{self, Policy, Theme};
 use super::protocol::{Classify, CommandInfo, Host};
 
 /// Commands that change the document although they are not undoable, or replace it with another
@@ -22,6 +22,11 @@ fn undoable(id: &str) -> bool {
 
 /// State queries and selection moves the UI runs on its own; the host's lists skip them.
 const QUERIES: &[&str] = &["format.state", "file.info", "text.get", "edit.select"];
+
+/// The OS colour scheme, read once on `init`: DeckCraft has no mode that follows it.
+fn prefers_dark() -> bool {
+    web_sys::window().and_then(|w| w.match_media("(prefers-color-scheme: dark)").ok().flatten()).is_some_and(|m| m.matches())
+}
 
 pub struct DeckHost<'a>(pub &'a mut SlideApp);
 
@@ -87,7 +92,14 @@ impl Host for DeckHost<'_> {
     fn set_policy(&mut self, mut p: Policy) {
         p.mutating = ALSO_MUTATING.iter().map(|s| s.to_string()).collect();
         p.queries = QUERIES.iter().map(|s| s.to_string()).collect();
+        let dark = match p.theme {
+            Theme::Light => false,
+            Theme::Dark => true,
+            Theme::System => prefers_dark(),
+        };
         policy::set(p);
+        // Always, `System` too: `view.dark` restyles, which brings in the host accent.
+        let _ = policy::as_host(|| self.0.run("view.dark", json!({"on": dark})));
     }
 
     fn classify(&self, name: &str) -> Classify {

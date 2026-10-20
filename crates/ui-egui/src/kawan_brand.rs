@@ -1,9 +1,12 @@
-//! KawanEditor branding (logo, About line) for the DeckCraft UI. DeckCraft's own UI calls these at
-//! a few hook points; everything here reads the host policy (`deckcraft_engine::kawan`) and falls
-//! back to KawanEditor's default logo.
+//! KawanEditor branding (logo, About line) and the host's accent colour for the DeckCraft UI.
+//! DeckCraft's own UI calls these at a few hook points; everything here reads the host policy
+//! (`deckcraft_engine::kawan`) and falls back to KawanEditor's default logo and DeckCraft's own
+//! colours.
 
 use deckcraft_engine::kawan as policy;
 use egui::{Color32, Rect, Sense, pos2, vec2};
+
+use crate::theme::Tokens;
 
 /// The default logo: KawanEditor's mark, 256 x 256.
 const DEFAULT_LOGO: &[u8] = include_bytes!("../assets/kawan-logo.png");
@@ -98,9 +101,78 @@ pub fn about() -> String {
     policy::about("DeckCraft")
 }
 
+fn rgb(c: [u8; 3]) -> Color32 {
+    Color32::from_rgb(c[0], c[1], c[2])
+}
+
+/// DeckCraft's tokens with the host accent: the accent and the guides, the contextual tab names
+/// and the text on top of the accent. Unchanged without an accent.
+pub fn tint(t: Tokens) -> Tokens {
+    match policy::accent() {
+        Some(a) => tint_with(t, a),
+        None => t,
+    }
+}
+
+fn tint_with(mut t: Tokens, a: [u8; 3]) -> Tokens {
+    let contextual = if t.dark { policy::mix(a, [255; 3], 0.25) } else { policy::mix(a, [0; 3], 0.10) };
+    t.accent = rgb(a);
+    t.guide = rgb(a);
+    t.contextual = rgb(contextual);
+    // `accent_text` is the text on accent fills (Present, Save, OK).
+    t.accent_text = rgb(policy::on_color(a));
+    t
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn with_accent(accent: Option<[u8; 3]>) {
+        policy::set(policy::Policy { accent, ..policy::Policy::default() });
+    }
+
+    #[test]
+    fn tint_is_identity_without_accent() {
+        with_accent(None);
+        for t in [Tokens::light(), Tokens::dark()] {
+            assert_eq!(format!("{:?}", tint(t)), format!("{t:?}"));
+        }
+        assert_eq!(format!("{:?}", Tokens::for_brightness(crate::theme::Brightness::Dark)), format!("{:?}", Tokens::dark()));
+    }
+
+    #[test]
+    fn tint_replaces_the_accent_family() {
+        let a = [0xE1, 0x1D, 0x48];
+        with_accent(Some(a));
+        let light = tint(Tokens::light());
+        assert_eq!(light.accent, rgb(a));
+        assert_eq!(light.guide, rgb(a));
+        assert_eq!(light.contextual, rgb([203, 26, 65]));
+        assert_eq!(light.accent_text, rgb([255, 255, 255]));
+        let dark = tint(Tokens::dark());
+        assert_eq!(dark.accent, rgb(a));
+        assert_eq!(dark.guide, rgb(a));
+        assert_eq!(dark.contextual, rgb([233, 86, 118]));
+        assert_eq!(dark.accent_text, rgb([255, 255, 255]));
+        // Everything else stays DeckCraft's.
+        assert_eq!(dark.chrome, Tokens::dark().chrome);
+        assert_eq!(light.selection, Tokens::light().selection);
+        assert_eq!(light.text_selection, Tokens::light().text_selection);
+        // The gallery previews keep calling the pure tokens; the UI's own builders tint.
+        assert_eq!(Tokens::light().accent, Color32::from_rgb(0xD9, 0x5A, 0x1A));
+        assert_eq!(Tokens::for_brightness(crate::theme::Brightness::Light).accent, rgb(a));
+        with_accent(None);
+    }
+
+    #[test]
+    fn on_accent_is_readable() {
+        with_accent(Some([0xFF, 0xFF, 0x00]));
+        for t in [tint(Tokens::light()), tint(Tokens::dark())] {
+            assert_eq!(t.accent_text, rgb([17, 17, 17]));
+        }
+        with_accent(None);
+    }
 
     /// A 4 x 4 opaque red PNG.
     const RED_PNG: &[u8] = &[
